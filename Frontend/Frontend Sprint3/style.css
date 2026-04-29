@@ -1,0 +1,168 @@
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* FUNDO */
+body {
+    background: linear-gradient(135deg, #1e3a5f, #2b5876);
+    color: #fff;
+}
+
+/* LOGIN */
+.login-container {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-card {
+    background: #ffffff;
+    color: #333;
+    padding: 30px;
+    border-radius: 12px;
+    width: 280px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.login-card h2 {
+    margin-bottom: 20px;
+}
+
+.login-card input {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.login-card button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background: #2b5876;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.login-card button:hover {
+    background: #1e3a5f;
+}
+
+/* HEADER */
+header {
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* NAV */
+nav {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+}
+
+nav button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #2b5876;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+nav button:hover {
+    background: #ddd;
+}
+
+/* CONTAINER */
+.container {
+    padding: 20px;
+}
+
+/* FORM CARD */
+.form-card {
+    background: #ffffff;
+    color: #333;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.form-card h2 {
+    margin-bottom: 15px;
+}
+
+.formulario {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.formulario input {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.acao {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background: #2b5876;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.acao:hover {
+    background: #1e3a5f;
+}
+
+.acao.secondary {
+    background: #888;
+}
+
+.acao.secondary:hover {
+    background: #666;
+}
+
+/* CARDS */
+.lista-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.card {
+    background: #ffffff;
+    color: #333;
+    padding: 15px;
+    border-radius: 12px;
+    width: 200px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}
+
+.card h3 {
+    margin-bottom: 10px;
+}

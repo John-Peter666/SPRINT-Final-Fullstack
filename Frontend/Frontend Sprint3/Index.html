@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Sistema Acadêmico</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginTela" class="login-container">
+    <div class="login-card">
+        <h2>Login</h2>
+        <input id="login" placeholder="Login">
+        <input id="senha" type="password" placeholder="Senha">
+        <button onclick="login()">Entrar</button>
+    </div>
+</div>
+
+<!-- SISTEMA -->
+<div id="sistema" style="display:none;">
+
+<header>
+    <h1>Sistema Acadêmico</h1>
+</header>
+
+<nav>
+    <button onclick="mostrar('aluno')">Alunos</button>
+    <button onclick="mostrar('disciplina')">Disciplinas</button>
+    <button onclick="mostrar('turma')">Turmas</button>
+    <button onclick="mostrar('matricula')">Matrículas</button>
+    <button onclick="logout()">Sair</button>
+</nav>
+
+<div class="container">
+    <div id="conteudo"></div>
+</div>
+
+</div>
+
+<script>
+
+const BASE = "http://localhost:5244/api";
+
+// 🔐 LOGIN
+function login() {
+    fetch(BASE + "/auth/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            login: document.getElementById("login").value,
+            senha: document.getElementById("senha").value
+        })
+    })
+    .then(r => {
+        if (!r.ok) throw "Login inválido";
+        return r.json();
+    })
+    .then(data => {
+        localStorage.setItem("token", data.token);
+
+        const payload = JSON.parse(atob(data.token.split('.')[1]));
+        localStorage.setItem("role", payload.role);
+
+        iniciarSistema();
+    })
+    .catch(err => {
+        console.log(err);
+        alert("Login errado");
+    });
+}
+
+function iniciarSistema() {
+    document.getElementById("loginTela").style.display = "none";
+    document.getElementById("sistema").style.display = "block";
+}
+
+function logout() {
+    localStorage.clear();
+    location.reload();
+}
+
+if (localStorage.getItem("token")) iniciarSistema();
+
+// 🔐 API
+function api(url, metodo = "GET", body = null) {
+    return fetch(BASE + url, {
+        method: metodo,
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        body: body ? JSON.stringify(body) : null
+    })
+    .then(async r => {
+        if (!r.ok) throw await r.text();
+
+        // 🔥 AQUI RESOLVE O DELETE
+        const text = await r.text();
+        return text ? JSON.parse(text) : null;
+    });
+}
+
+
+
+// 🎯 TELAS
+function mostrar(tipo) {
+
+    const conteudo = document.getElementById("conteudo");
+
+    if (tipo === "aluno") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Alunos</h2>
+                <input id="nome" placeholder="Nome">
+                <input id="email" placeholder="Email">
+                ${isAdmin() ? `<button onclick="cadastrarAluno()">Cadastrar</button>` : ""}
+                <button onclick="listarAlunos()">Listar</button>
+            </div>
+            <div id="lista"></div>
+        `;
+    }
+
+    if (tipo === "disciplina") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Disciplinas</h2>
+                <input id="nomeDisc" placeholder="Nome">
+                ${isAdmin() ? `<button onclick="cadastrarDisciplina()">Cadastrar</button>` : ""}
+                <button onclick="listarDisciplinas()">Listar</button>
+            </div>
+            <div id="lista"></div>
+        `;
+    }
+
+    if (tipo === "turma") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Turmas</h2>
+                <input id="prof" placeholder="ID Professor">
+                <input id="disc" placeholder="ID Disciplina">
+                ${isAdmin() ? `<button onclick="cadastrarTurma()">Cadastrar</button>` : ""}
+                <button onclick="listarTurmas()">Listar</button>
+            </div>
+            <div id="lista"></div>
+        `;
+    }
+
+    if (tipo === "matricula") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Matrículas</h2>
+                <input id="aluno" placeholder="ID Aluno">
+                <input id="turma" placeholder="ID Turma">
+                ${isAdmin() ? `<button onclick="cadastrarMatricula()">Cadastrar</button>` : ""}
+                <button onclick="listarMatriculas()">Listar</button>
+            </div>
+            <div id="lista"></div>
+        `;
+    }
+}
+
+// 🔵 ALUNOS
+function listarAlunos() {
+    const lista = document.getElementById("lista");
+
+    api("/aluno").then(data => {
+        lista.innerHTML = "";
+
+        data.forEach(a => {
+            lista.innerHTML += `
+                <div class="card">
+                    <h3>${a.nomaluno}</h3>
+                    <p>${a.email}</p>
+                    ${isAdmin() ? `
+                        <button onclick="editarAluno(${a.idealuno}, '${a.nomaluno}', '${a.email}')">Editar</button>
+                        <button onclick="deletarAluno(${a.idealuno})">Excluir</button>
+                    ` : ""}
+                </div>
+            `;
+        });
+    });
+}
+
+function cadastrarAluno() {
+    api("/aluno", "POST", {
+        nomaluno: document.getElementById("nome").value,
+        email: document.getElementById("email").value
+    }).then(() => listarAlunos());
+}
+
+function editarAluno(id, nomeAtual, emailAtual) {
+    if (!isAdmin()) return alert("Sem permissão");
+
+    const novoNome = prompt("Novo nome:", nomeAtual);
+    const novoEmail = prompt("Novo email:", emailAtual);
+
+    if (!novoNome || !novoEmail) return;
+
+    api("/aluno/" + id, "PUT", {
+        nomaluno: novoNome,
+        email: novoEmail
+    }).then(() => listarAlunos());
+}
+
+function deletarAluno(id) {
+    if (!isAdmin()) return alert("Sem permissão");
+    if (!confirm("Tem certeza?")) return;
+
+    api("/aluno/" + id, "DELETE")
+        .then(() => listarAlunos());
+}
+
+// 🟣 DISCIPLINA
+function listarDisciplinas() {
+    const lista = document.getElementById("lista");
+
+    api("/disciplina").then(data => {
+        lista.innerHTML = "";
+
+        data.forEach(d => {
+            lista.innerHTML += `
+                <div class="card">
+                    <h3>${d.nomemateria}</h3>
+                    ${isAdmin() ? `
+                        <button onclick="editarDisciplina(${d.idedisciplina}, '${d.nomemateria}')">Editar</button>
+                        <button onclick="deletarDisciplina(${d.idedisciplina})">Excluir</button>
+                    ` : ""}
+                </div>
+            `;
+        });
+    });
+}
+
+function cadastrarDisciplina() {
+    api("/disciplina", "POST", {
+        nomemateria: document.getElementById("nomeDisc").value
+    }).then(() => listarDisciplinas());
+}
+
+function editarDisciplina(id, nomeAtual) {
+    if (!isAdmin()) return alert("Sem permissão");
+
+    const novoNome = prompt("Novo nome:", nomeAtual);
+    if (!novoNome) return;
+
+    api("/disciplina/" + id, "PUT", {
+        nomemateria: novoNome
+    }).then(() => listarDisciplinas());
+}
+
+function deletarDisciplina(id) {
+    if (!isAdmin()) return alert("Sem permissão");
+    if (!confirm("Tem certeza?")) return;
+
+    api("/disciplina/" + id, "DELETE")
+        .then(() => listarDisciplinas());
+}
+
+// 🟡 TURMAS
+function listarTurmas() {
+    const lista = document.getElementById("lista");
+
+    api("/turma").then(data => {
+        lista.innerHTML = "";
+
+        data.forEach(t => {
+            lista.innerHTML += `
+                <div class="card">
+                    <h3>Turma ${t.idturma}</h3>
+                    <p>Professor: ${t.ideprofessor}</p>
+                    <p>Disciplina: ${t.idedisciplina}</p>
+                    ${isAdmin() ? `
+                        <button onclick="editarTurma(${t.idturma}, ${t.ideprofessor}, ${t.idedisciplina})">Editar</button>
+                        <button onclick="deletarTurma(${t.idturma})">Excluir</button>
+                    ` : ""}
+                </div>
+            `;
+        });
+    });
+}
+
+function cadastrarTurma() {
+    api("/turma", "POST", {
+        ideprofessor: Number(document.getElementById("prof").value),
+        idedisciplina: Number(document.getElementById("disc").value)
+    }).then(() => listarTurmas());
+}
+
+function editarTurma(id, profAtual, discAtual) {
+    if (!isAdmin()) return alert("Sem permissão");
+
+    const novoProf = prompt("Novo ID Professor:", profAtual);
+    const novaDisc = prompt("Novo ID Disciplina:", discAtual);
+
+    if (!novoProf || !novaDisc) return;
+
+    api("/turma/" + id, "PUT", {
+        ideprofessor: Number(novoProf),
+        idedisciplina: Number(novaDisc)
+    }).then(() => listarTurmas());
+}
+
+function deletarTurma(id) {
+    if (!isAdmin()) return alert("Sem permissão");
+    if (!confirm("Tem certeza?")) return;
+
+    fetch(BASE + "/turma/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    })
+    .then(() => {
+        // 🔥 força recarregar a tela atual
+        mostrar('turma');
+        setTimeout(listarTurmas, 100);
+    })
+    .catch(err => {
+        console.log(err);
+        alert("Erro ao excluir");
+    });
+}
+
+
+// 🔴 MATRÍCULAS
+function listarMatriculas() {
+    const lista = document.getElementById("lista");
+
+    api("/MatriculaDisciplina").then(data => {
+        lista.innerHTML = "";
+
+        data.forEach(m => {
+            lista.innerHTML += `
+                <div class="card">
+                    <h3>Aluno ${m.idealuno}</h3>
+                    <p>Turma: ${m.ideturma}</p>
+                    ${isAdmin() ? `
+                        <button onclick="editarMatricula(${m.id}, ${m.idealuno}, ${m.ideturma})">Editar</button>
+                        <button onclick="deletarMatricula(${m.id})">Excluir</button>
+                    ` : ""}
+                </div>
+            `;
+        });
+    });
+}
+
+function cadastrarMatricula() {
+    api("/MatriculaDisciplina", "POST", {
+        idealuno: Number(document.getElementById("aluno").value),
+        ideturma: Number(document.getElementById("turma").value)
+    }).then(() => listarMatriculas());
+}
+
+function editarMatricula(id, alunoAtual, turmaAtual) {
+    if (!isAdmin()) return alert("Sem permissão");
+
+    const novoAluno = prompt("Novo ID Aluno:", alunoAtual);
+    const novaTurma = prompt("Novo ID Turma:", turmaAtual);
+
+    if (!novoAluno || !novaTurma) return;
+
+    api("/MatriculaDisciplina/" + id, "PUT", {
+        idealuno: Number(novoAluno),
+        ideturma: Number(novaTurma)
+    }).then(() => listarMatriculas());
+}
+
+function deletarMatricula(id) {
+    if (!isAdmin()) return alert("Sem permissão");
+    if (!confirm("Tem certeza?")) return;
+
+    api("/MatriculaDisciplina/" + id, "DELETE")
+        .then(() => listarMatriculas());
+}
+
+// 🔐 ROLE
+function isAdmin() {
+    return localStorage.getItem("role") === "admin";
+}
+
+</script>
+
+</body>
+</html>

@@ -15,14 +15,14 @@ namespace Sprint_3.Controllers
             _context = context;
         }
 
-        // 🔍 GET TODOS
+        
         [HttpGet]
         public IActionResult Get()
         {
             return Ok(_context.Disciplinas.ToList());
         }
 
-        // 🔍 GET POR ID
+        
         [HttpGet("{id}")]
         public IActionResult GetById(long id)
         {
@@ -34,7 +34,7 @@ namespace Sprint_3.Controllers
             return Ok(disciplina);
         }
 
-        // ➕ POST
+        
         [HttpPost]
         public IActionResult Post([FromBody] Disciplina disciplina)
         {
@@ -44,7 +44,7 @@ namespace Sprint_3.Controllers
             return Ok(disciplina);
         }
 
-        // ✏️ PUT
+        
         [HttpPut("{id}")]
         public IActionResult Put(long id, [FromBody] Disciplina disciplinaAtualizada)
         {
@@ -62,7 +62,7 @@ namespace Sprint_3.Controllers
             return Ok(disciplina);
         }
 
-        // ❌ DELETE
+        
         [HttpDelete("{id}")]
         public IActionResult Delete(long id)
         {

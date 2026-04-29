@@ -15,22 +15,22 @@ namespace Sprint_3.Controllers
             _context = context;
         }
 
-        // 🔍 GET
+       
         [HttpGet]
         public IActionResult Get()
         {
             return Ok(_context.MatriculasDisciplinas.ToList());
         }
 
-        // ➕ POST (COM VALIDAÇÃO)
+        
         [HttpPost]
         public IActionResult Post([FromBody] MatriculaDisciplina matricula)
         {
-            // 🔥 valida aluno
+            
             if (!_context.Alunos.Any(a => a.idealuno == matricula.idealuno))
                 return BadRequest("Aluno não existe");
 
-            // 🔥 valida turma
+            
             if (!_context.Turmas.Any(t => t.idturma == matricula.ideturma))
                 return BadRequest("Turma não existe");
 
@@ -40,7 +40,7 @@ namespace Sprint_3.Controllers
             return Ok(matricula);
         }
 
-        // ✏️ PUT
+        
         [HttpPut("{id}")]
         public IActionResult Put(long id, [FromBody] MatriculaDisciplina atualizado)
         {
@@ -57,7 +57,7 @@ namespace Sprint_3.Controllers
             return Ok(matricula);
         }
 
-        // ❌ DELETE
+        
         [HttpDelete("{id}")]
         public IActionResult Delete(long id)
         {

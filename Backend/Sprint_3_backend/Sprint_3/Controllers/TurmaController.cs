@@ -15,14 +15,14 @@ namespace Sprint_3.Controllers
             _context = context;
         }
 
-        // 🔍 GET
+        
         [HttpGet]
         public IActionResult Get()
         {
             return Ok(_context.Turmas.ToList());
         }
 
-        // ➕ POST
+        
         [HttpPost]
         public IActionResult Post([FromBody] Turma turma)
         {
@@ -38,7 +38,7 @@ namespace Sprint_3.Controllers
             return Ok(turma);
         }
 
-        // ❌ DELETE
+        
         [HttpDelete("{id}")]
         public IActionResult Delete(long id)
         {

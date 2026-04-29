@@ -30,7 +30,7 @@ namespace Sprint_3.Controllers
             if (user == null)
                 return Unauthorized();
 
-            // 🔥 AGORA PEGA DO appsettings.json
+            
             var key = _config["Jwt:Key"];
             var keyBytes = Encoding.UTF8.GetBytes(key);
 

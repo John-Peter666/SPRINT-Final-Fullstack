@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Sprint_3.Migrations
 {
-    /// <inheritdoc />
+    
     public partial class Inicial : Migration
     {
-        /// <inheritdoc />
+        
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterDatabase()
@@ -40,7 +40,7 @@ namespace Sprint_3.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
         }
 
-        /// <inheritdoc />
+        
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

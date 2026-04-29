@@ -15,14 +15,14 @@ namespace Sprint_3.Controllers
             _context = context;
         }
 
-        // 🔍 GET TODOS
+       
         [HttpGet]
         public IActionResult Get()
         {
             return Ok(_context.Professores.ToList());
         }
 
-        // 🔍 GET POR ID
+        
         [HttpGet("{id}")]
         public IActionResult GetById(long id)
         {
@@ -34,7 +34,7 @@ namespace Sprint_3.Controllers
             return Ok(professor);
         }
 
-        // ➕ POST
+        
         [HttpPost]
         public IActionResult Post([FromBody] Professor professor)
         {
@@ -47,7 +47,7 @@ namespace Sprint_3.Controllers
             return Ok(professor);
         }
 
-        // ✏️ PUT
+        
         [HttpPut("{id}")]
         public IActionResult Put(long id, [FromBody] Professor professorAtualizado)
         {
@@ -65,7 +65,7 @@ namespace Sprint_3.Controllers
             return Ok(professor);
         }
 
-        // ❌ DELETE
+        
         [HttpDelete("{id}")]
         public IActionResult Delete(long id)
         {

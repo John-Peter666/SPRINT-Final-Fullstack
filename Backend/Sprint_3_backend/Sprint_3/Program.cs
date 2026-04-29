@@ -8,15 +8,15 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔐 JWT
+
 var key = builder.Configuration["Jwt:Key"]
     ?? throw new Exception("JWT Key não encontrada");
 
-// 🔥 SERVICES
+
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AlunoService>();
 
-// 🗄️ DB
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -24,7 +24,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     )
 );
 
-// 🔐 AUTH
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -53,7 +53,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// 🌐 CORS
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -64,15 +64,15 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
-// 📄 SWAGGER (VERSÃO SEGURA SEM ERRO)
+
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 🚀 PIPELINE
+
 app.UseCors("AllowAll");
 
-// Swagger sempre ativo (facilita teste)
+
 app.UseSwagger();
 app.UseSwaggerUI();
 

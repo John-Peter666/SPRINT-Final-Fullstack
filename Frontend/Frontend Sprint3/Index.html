@@ -8,7 +8,7 @@
 
 <body>
 
-<!-- LOGIN -->
+
 <div id="loginTela" class="login-container">
     <div class="login-card">
         <h2>Login</h2>
@@ -18,7 +18,7 @@
     </div>
 </div>
 
-<!-- SISTEMA -->
+
 <div id="sistema" style="display:none;">
 
 <header>
@@ -26,7 +26,7 @@
 </header>
 
 <nav>
-    <button onclick="mostrar('aluno')">Alunos</button>
+    <button onclick="mostrar('aluno')">Pessoas</button>
     <button onclick="mostrar('disciplina')">Disciplinas</button>
     <button onclick="mostrar('turma')">Turmas</button>
     <button onclick="mostrar('matricula')">Matrículas</button>
@@ -43,7 +43,7 @@
 
 const BASE = "http://localhost:5244/api";
 
-// 🔐 LOGIN
+
 function login() {
     fetch(BASE + "/auth/login", {
         method: "POST",
@@ -83,7 +83,7 @@ function logout() {
 
 if (localStorage.getItem("token")) iniciarSistema();
 
-// 🔐 API
+
 function api(url, metodo = "GET", body = null) {
     return fetch(BASE + url, {
         method: metodo,
@@ -96,7 +96,7 @@ function api(url, metodo = "GET", body = null) {
     .then(async r => {
         if (!r.ok) throw await r.text();
 
-        // 🔥 AQUI RESOLVE O DELETE
+        
         const text = await r.text();
         return text ? JSON.parse(text) : null;
     });
@@ -104,7 +104,7 @@ function api(url, metodo = "GET", body = null) {
 
 
 
-// 🎯 TELAS
+
 function mostrar(tipo) {
 
     const conteudo = document.getElementById("conteudo");
@@ -112,7 +112,7 @@ function mostrar(tipo) {
     if (tipo === "aluno") {
         conteudo.innerHTML = `
             <div class="form-card">
-                <h2>Alunos</h2>
+                <h2>Pessoas</h2>
                 <input id="nome" placeholder="Nome">
                 <input id="email" placeholder="Email">
                 ${isAdmin() ? `<button onclick="cadastrarAluno()">Cadastrar</button>` : ""}
@@ -138,7 +138,7 @@ function mostrar(tipo) {
         conteudo.innerHTML = `
             <div class="form-card">
                 <h2>Turmas</h2>
-                <input id="prof" placeholder="ID Professor">
+                <input id="prof" placeholder="ID Pessoa">
                 <input id="disc" placeholder="ID Disciplina">
                 ${isAdmin() ? `<button onclick="cadastrarTurma()">Cadastrar</button>` : ""}
                 <button onclick="listarTurmas()">Listar</button>
@@ -161,7 +161,7 @@ function mostrar(tipo) {
     }
 }
 
-// 🔵 ALUNOS
+
 function listarAlunos() {
     const lista = document.getElementById("lista");
 
@@ -212,7 +212,7 @@ function deletarAluno(id) {
         .then(() => listarAlunos());
 }
 
-// 🟣 DISCIPLINA
+
 function listarDisciplinas() {
     const lista = document.getElementById("lista");
 
@@ -258,7 +258,7 @@ function deletarDisciplina(id) {
         .then(() => listarDisciplinas());
 }
 
-// 🟡 TURMAS
+
 function listarTurmas() {
     const lista = document.getElementById("lista");
 
@@ -313,7 +313,7 @@ function deletarTurma(id) {
         }
     })
     .then(() => {
-        // 🔥 força recarregar a tela atual
+        
         mostrar('turma');
         setTimeout(listarTurmas, 100);
     })
@@ -324,7 +324,7 @@ function deletarTurma(id) {
 }
 
 
-// 🔴 MATRÍCULAS
+
 function listarMatriculas() {
     const lista = document.getElementById("lista");
 
@@ -337,8 +337,8 @@ function listarMatriculas() {
                     <h3>Aluno ${m.idealuno}</h3>
                     <p>Turma: ${m.ideturma}</p>
                     ${isAdmin() ? `
-                        <button onclick="editarMatricula(${m.id}, ${m.idealuno}, ${m.ideturma})">Editar</button>
-                        <button onclick="deletarMatricula(${m.id})">Excluir</button>
+                        <button onclick="editarMatricula(${m.idMatricula}, ${m.idealuno}, ${m.ideturma})">Editar</button>
+                        <button onclick="deletarMatricula(${m.idMatricula})">Excluir</button>
                     ` : ""}
                 </div>
             `;
@@ -375,7 +375,7 @@ function deletarMatricula(id) {
         .then(() => listarMatriculas());
 }
 
-// 🔐 ROLE
+
 function isAdmin() {
     return localStorage.getItem("role") === "admin";
 }

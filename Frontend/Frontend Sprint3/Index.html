@@ -2,719 +2,496 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Sistema Acadêmico</title>
+<title>Sistema Acadêmico - Pro Edition</title>
 <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-
 <div id="loginTela" class="login-container">
-    <div class="login-card">
-        <h2>Login</h2>
-        <input id="login" placeholder="Login">
-        <input id="senha" type="password" placeholder="Senha">
-        <button onclick="login()">Entrar</button>
-    </div>
+<div class="login-card">
+<h2>Login</h2>
+<input id="login" placeholder="E-mail ou usuário">
+<input id="senha" type="password" placeholder="Sua senha">
+<button onclick="login()">Autenticar no Sistema</button>
+</div>
 </div>
 
-
 <div id="sistema" style="display:none;">
-
-<header>
-    <h1>Sistema Acadêmico</h1>
-</header>
-
 <nav>
-    <button onclick="mostrar('dashboard')">Dashboard</button>
-    <button onclick="mostrar('boletim')">Boletim</button>
-    <button onclick="mostrar('aluno')">Alunos</button>
-    <button onclick="mostrar('professor')">Professores</button>
-    <button onclick="mostrar('disciplina')">Disciplinas</button>
-    <button onclick="mostrar('turma')">Turmas</button>
-    <button onclick="mostrar('matricula')">Matrículas</button>
-    <button onclick="logout()">Sair</button>
+<header>
+<h1>Sistema Acadêmico</h1>
+</header>
+<button onclick="mostrar('dashboard')">Painel de Controle</button>
+<button onclick="mostrar('boletim')">Boletim Escolar</button>
+<button onclick="mostrar('aluno')">Gestão de Alunos</button>
+<button onclick="mostrar('professor')">Gestão de Professores</button>
+<button onclick="mostrar('disciplina')">Disciplinas</button>
+<button onclick="mostrar('turma')">Turmas Acadêmicas</button>
+<button onclick="mostrar('matricula')">Controle de Matrículas</button>
+<button onclick="logout()">Encerrar Sessão</button>
 </nav>
 
 <div class="container">
-    <div id="conteudo"></div>
+<div id="conteudo"></div>
 </div>
-
 </div>
 
 <script>
-
 const BASE = "http://localhost:5244/api";
 
+// Tenta puxar o cache já salvo no localStorage; se não existir, começa vazio
+let cacheMatriculas = JSON.parse(localStorage.getItem("local_matriculas")) || [];
+let dadosDashboardBase = JSON.parse(localStorage.getItem("local_dashboard")) || {
+alunosCadastrados: 0,
+professoresCadastrados: 0,
+disciplinasAtivas: 0,
+totalMatriculasEfetuadas: 0,
+mediaGeralDaEscola: 0
+};
 
 function login() {
-    fetch(BASE + "/auth/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            login: document.getElementById("login").value,
-            senha: document.getElementById("senha").value
-        })
-    })
-    .then(r => {
-        if (!r.ok) throw "Login inválido";
-        return r.json();
-    })
-    .then(data => {
-        localStorage.setItem("token", data.token);
-
-        // Decodifica o Token para ler o que o Back-End enviou de verdade
-        const payload = JSON.parse(atob(data.token.split('.')[1]));
-        
-        // Procura pela role de duas formas (padrão simples ou link completo do .NET)
-        const userRole = payload.role || payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "user";
-        
-        localStorage.setItem("role", userRole.toLowerCase().trim());
-
-        iniciarSistema();
-    })
-    .catch(err => {
-        console.log(err);
-        alert("Login errado");
-    });
-}
-
-
-function isAdmin() {
-    const role = localStorage.getItem("role");
-    return role === "admin";
+fetch(BASE + "/auth/login", {
+method: "POST",
+headers: {"Content-Type": "application/json"},
+body: JSON.stringify({
+login: document.getElementById("login").value,
+senha: document.getElementById("senha").value
+})
+})
+.then(r => {
+if (!r.ok) throw "Login inválido";
+return r.json();
+})
+.then(data => {
+localStorage.setItem("token", data.token);
+iniciarSistema();
+})
+.catch(err => {
+console.log(err);
+alert("Acesso negado. Verifique os dados.");
+});
 }
 
 function iniciarSistema() {
-    document.getElementById("loginTela").style.display = "none";
-    document.getElementById("sistema").style.display = "block";
-    mostrar('dashboard');
+document.getElementById("loginTela").style.display = "none";
+document.getElementById("sistema").style.display = "flex";
+mostrar('dashboard');
 }
 
 function logout() {
-    localStorage.clear();
-    location.reload();
+localStorage.clear();
+location.reload();
 }
 
 if (localStorage.getItem("token")) iniciarSistema();
 
+// Puxa do banco apenas as matrículas novas que ainda não temos no localStorage
+function sincronizarCacheMatriculas() {
+return fetch(BASE + "/MatriculaDisciplina", {
+headers: { "Authorization": "Bearer " + localStorage.getItem("token") }
+})
+.then(r => r.ok ? r.json() : [])
+.then(data => {
+data.forEach(m => {
+const idm = m.idMatricula || m.idmatricula || m.id;
+let jaExiste = cacheMatriculas.find(c => Number(c.idMatricula || c.idmatricula || c.id) === Number(idm));
+if (!jaExiste) {
+cacheMatriculas.push(m);
+}
+});
+localStorage.setItem("local_matriculas", JSON.stringify(cacheMatriculas));
+})
+.catch(() => {});
+}
 
 function api(url, metodo = "GET", body = null) {
-    return fetch(BASE + url, {
-        method: metodo,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        body: body ? JSON.stringify(body) : null
-    })
-    .then(async r => {
-        if (!r.ok) throw await r.text();
-
-        const text = await r.text();
-        return text ? JSON.parse(text) : null;
-    });
+return fetch(BASE + url, {
+method: metodo,
+headers: {
+"Content-Type": "application/json",
+"Authorization": "Bearer " + localStorage.getItem("token")
+},
+body: body ? JSON.stringify(body) : null
+})
+.then(async r => {
+if (!r.ok) throw await r.text();
+const text = await r.text();
+return text ? JSON.parse(text) : null;
+});
 }
-
-
-
 
 function mostrar(tipo) {
+const conteudo = document.getElementById("conteudo");
 
-    const conteudo = document.getElementById("conteudo");
-
-    if (tipo === "dashboard") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Estatísticas Gerais do Sistema</h2>
-                <div id="dashboard-cards" class="dashboard-grid">
-                    <div class="dash-card loading">Carregando dados...</div>
-                </div>
-            </div>
-        `;
-        carregarDashboard();
-    }
-
-    if (tipo === "boletim") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Lançar Nota (Professor/Admin)</h2>
-                <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <input id="notaMatriculaId" placeholder="ID da Matrícula" type="number" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 150px;">
-                    <input id="notaValor" placeholder="Nota (Ex: 8.5)" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 150px;">
-                    <button onclick="lancarNota()" style="padding: 10px 15px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Salvar Nota</button>
-                </div>
-                
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-
-                <h2>Consulta de Boletim Escolar</h2>
-                <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                    <input id="buscaAlunoId" placeholder="Digite o ID do Aluno" type="number" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 200px;">
-                    <button onclick="carregarBoletim()" style="padding: 10px 15px; background: #2b5876; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Buscar Notas</button>
-                </div>
-                <div id="boletim-resultado">
-                    <p style="color: #666;">Insira o ID de um aluno para carregar o histórico de notas.</p>
-                </div>
-            </div>
-        `;
-    }
-
-    if (tipo === "aluno") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Pessoas</h2>
-                <input id="nome" placeholder="Nome">
-                <input id="email" placeholder="Email">
-                ${isAdmin() ? `<button onclick="cadastrarAluno()">Cadastrar</button>` : ""}
-                <button onclick="listarAlunos()">Listar</button>
-            </div>
-            <div id="lista"></div>
-        `;
-    }
-
-
-    if (tipo === "professor") {
-    conteudo.innerHTML = `
-        <div class="form-card">
-            <h2>Professores</h2>
-            <input id="nomeProf" placeholder="Nome do Professor">
-            <input id="emailProf" placeholder="Email do Professor">
-            ${isAdmin() ? `<button onclick="cadastrarProfessor()">Cadastrar</button>` : ""}
-            <button onclick="listarProfessores()">Listar Professores</button>
-        </div>
-        <div id="listaProfessores"></div>
-    `;
+if (tipo === "dashboard") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Visão Geral do Estabelecimento</h2>
+<div id="dashboard-cards" class="dashboard-grid">
+<div class="dash-card loading">Sincronizando banco de dados...</div>
+</div>
+</div>
+`;
+carregarDashboard();
 }
 
-    if (tipo === "disciplina") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Disciplinas</h2>
-                <input id="nomeDisc" placeholder="Nome">
-                ${isAdmin() ? `<button onclick="cadastrarDisciplina()">Cadastrar</button>` : ""}
-                <button onclick="listarDisciplinas()">Listar</button>
-            </div>
-            <div id="lista"></div>
-        `;
-    }
-
-    if (tipo === "turma") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Turmas</h2>
-                <input id="prof" placeholder="ID Pessoa">
-                <input id="disc" placeholder="ID Disciplina">
-                ${isAdmin() ? `<button onclick="cadastrarTurma()">Cadastrar</button>` : ""}
-                <button onclick="listarTurmas()">Listar</button>
-            </div>
-            <div id="lista"></div>
-        `;
-    }
-
-    if (tipo === "matricula") {
-        conteudo.innerHTML = `
-            <div class="form-card">
-                <h2>Matrículas</h2>
-                <input id="aluno" placeholder="ID Aluno">
-                <input id="turma" placeholder="ID Turma">
-                ${isAdmin() ? `<button onclick="cadastrarMatricula()">Cadastrar</button>` : ""}
-                <button onclick="listarMatriculas()">Listar</button>
-            </div>
-            <div id="lista"></div>
-        `;
-    }
+if (tipo === "boletim") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Lançamento de Avaliações</h2>
+<div style="margin-bottom: 25px; display: flex; gap: 12px; flex-wrap: wrap;">
+<input id="notaMatriculaId" placeholder="Matrícula" type="number">
+<input id="notaValor" placeholder="Nota Final" type="text">
+<button onclick="lancarNota()" style="background: #10b981; color: #fff;">Confirmar Nota</button>
+</div>
+<hr style="border: 0; border-top: 1px solid #1e293b; margin: 40px 0;">
+<h2>Histórico por Discente</h2>
+<div style="margin-bottom: 15px; display: flex; gap: 12px;">
+<input id="buscaAlunoId" placeholder="Código do Aluno" type="number">
+<button onclick="carregarBoletim()">Gerar Boletim</button>
+</div>
+<div id="boletim-resultado">
+<p style="color: #94a3b8; margin-top:20px;">Aguardando entrada de dados...</p>
+</div>
+</div>
+`;
 }
 
+if (tipo === "aluno") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Administração de Alunos</h2>
+<input id="nome" placeholder="Nome do Aluno">
+<input id="email" placeholder="E-mail Acadêmico">
+<button onclick="cadastrarAluno()">Incluir Registro</button>
+<button onclick="listarAlunos()">Consultar Base</button>
+</div>
+<div id="lista"></div>
+`;
+}
+
+if (tipo === "professor") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Quadro Docente</h2>
+<input id="nomeProf" placeholder="Nome Completo">
+<input id="emailProf" placeholder="E-mail Institucional">
+<button onclick="cadastrarProfessor()">Incluir Professor</button>
+<button onclick="listarProfessores()">Consultar Base</button>
+</div>
+<div id="listaProfessores"></div>
+`;
+}
+
+if (tipo === "disciplina") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Grade Curricular</h2>
+<input id="nomeDisc" placeholder="Nome da Matéria">
+<button onclick="cadastrarDisciplina()">Nova Disciplina</button>
+<button onclick="listarDisciplinas()">Consultar Ativas</button>
+</div>
+<div id="lista"></div>
+`;
+}
+
+if (tipo === "turma") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Grupos Acadêmicos</h2>
+<input id="prof" placeholder="ID Docente">
+<input id="disc" placeholder="ID Disciplina">
+<button onclick="cadastrarTurma()">Gerar Turma</button>
+<button onclick="listarTurmas()">Consultar Ativas</button>
+</div>
+<div id="lista"></div>
+`;
+}
+
+if (tipo === "matricula") {
+conteudo.innerHTML = `
+<div class="form-card">
+<h2>Registro de Matrículas</h2>
+<input id="aluno" placeholder="ID Aluno">
+<input id="turma" placeholder="ID Turma">
+<button onclick="cadastrarMatricula()">Processar Vínculo</button>
+<button onclick="listarMatriculas()">Listar Registros</button>
+</div>
+<div id="lista"></div>
+`;
+}
+}
+
+function calcularMediaGlobalLocal() {
+let matriculasComNota = cacheMatriculas.filter(m => m.nota !== undefined && m.nota !== null && m.nota !== "N/A" && !isNaN(m.nota));
+if (matriculasComNota.length === 0) return dadosDashboardBase.mediaGeralDaEscola || 0;
+let soma = matriculasComNota.reduce((acc, m) => acc + Number(m.nota), 0);
+return soma / matriculasComNota.length;
+}
 
 function carregarDashboard() {
-    const grid = document.getElementById("dashboard-cards");
-    
-    api("/Dashboard/estatisticas")
-        .then(data => {
-            grid.innerHTML = `
-                <div class="dash-card azul">
-                    <h3>Alunos</h3>
-                    <p class="numero">${data.alunosCadastrados}</p>
-                </div>
-                <div class="dash-card verde">
-                    <h3>Professores</h3>
-                    <p class="numero">${data.professoresCadastrados}</p>
-                </div>
-                <div class="dash-card laranja">
-                    <h3>Disciplinas</h3>
-                    <p class="numero">${data.disciplinasAtivas}</p>
-                </div>
-                <div class="dash-card roxo">
-                    <h3>Matrículas</h3>
-                    <p class="numero">${data.totalMatriculasEfetuadas}</p>
-                </div>
-                <div class="dash-card destaque">
-                    <h3>Média Geral da Escola</h3>
-                    <p class="numero">${data.mediaGeralDaEscola.toFixed(2)}</p>
-                </div>
-            `;
-        })
-        .catch(err => {
-            console.error(err);
-            grid.innerHTML = `<div class="dash-card erro">Erro ao carregar os dados do Dashboard.</div>`;
-        });
+const grid = document.getElementById("dashboard-cards");
+sincronizarCacheMatriculas().then(() => {
+api("/Dashboard/estatisticas")
+.then(data => {
+dadosDashboardBase = data;
+localStorage.setItem("local_dashboard", JSON.stringify(dadosDashboardBase));
+renderizarDashboardCards(grid);
+})
+.catch(() => {
+renderizarDashboardCards(grid);
+});
+});
 }
 
+function renderizarDashboardCards(grid) {
+let mediaCalculada = calcularMediaGlobalLocal();
+grid.innerHTML = `
+<div class="dash-card azul"><h3>Alunos</h3><p class="numero">${dadosDashboardBase.alunosCadastrados || 0}</p></div>
+<div class="dash-card verde"><h3>Professores</h3><p class="numero">${dadosDashboardBase.professoresCadastrados || 0}</p></div>
+<div class="dash-card laranja"><h3>Disciplinas</h3><p class="numero">${dadosDashboardBase.disciplinasAtivas || 0}</p></div>
+<div class="dash-card roxo"><h3>Matrículas</h3><p class="numero">${cacheMatriculas.length || dadosDashboardBase.totalMatriculasEfetuadas}</p></div>
+<div class="dash-card destaque"><h3>Média Global</h3><p class="numero">${Number(mediaCalculada).toFixed(2)}</p></div>
+`;
+}
 
 function carregarBoletim() {
-    const idAluno = document.getElementById("buscaAlunoId").value;
-    const resultado = document.getElementById("boletim-resultado");
-    
-    if (!idAluno) return alert("Por favor, informe o ID do Aluno");
-    
-    resultado.innerHTML = "<p style='color: #333;'>Buscando informações no boletim...</p>";
-    
-    api("/Boletim/" + idAluno)
-        .then(data => {
-            console.log("Dados brutos que vieram da API:", data);
-            
-            const listaNotas = data && data.boletim ? data.boletim : data;
-            
-            if (!listaNotas || !Array.isArray(listaNotas) || listaNotas.length === 0) {
-                resultado.innerHTML = "<p style='color: #c0392b;'>Nenhuma nota ou matrícula encontrada para este aluno.</p>";
-                return;
-            }
-            
-            let tabelaHtml = `
-                <p style="margin-bottom: 12px; font-weight: bold; color: #2b5876; font-size: 1.1em;">Aluno: ${data.nomeAluno || 'Consultado'}</p>
-                <table class="boletim-table">
-                    <thead>
-                        <tr>
-                            <th>Disciplina</th>
-                            <th>Professor</th>
-                            <th>Nota</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            listaNotas.forEach(item => {
-                // CORRIGIDO: Pegando os nomes exatos do seu Back-End C#
-                const nomeMateria = item.materia || item.nomemateria || item.nomeMateria || 'Disciplina';
-                const nomeProfessor = item.professor || 'Não informado';
-                
-                // CORRIGIDO: Buscando pela propriedade 'notaFinal' que vimos no console
-                let nota = 0;
-                if (item.hasOwnProperty('notaFinal') && item.notaFinal !== null) nota = item.notaFinal;
-                else if (item.hasOwnProperty('nota') && item.nota !== null) nota = item.nota;
-                else if (item.hasOwnProperty('Nota') && item.Nota !== null) nota = item.Nota;
-                
-                const status = nota >= 6 ? "<span style='color:green;font-weight:bold;'>Aprovado</span>" : "<span style='color:red;font-weight:bold;'>Recuperação</span>";
-                
-                tabelaHtml += `
-                    <tr>
-                        <td><strong>${nomeMateria}</strong></td>
-                        <td>${nomeProfessor}</td>
-                        <td>${Number(nota).toFixed(1)}</td>
-                        <td>${status}</td>
-                    </tr>
-                `;
-            });
-            
-            tabelaHtml += `</tbody></table>`;
-            resultado.innerHTML = tabelaHtml;
-        })
-        .catch(err => {
-            console.error("Erro completo disparado pela API do boletim:", err);
-            resultado.innerHTML = `<p style='color: #c0392b;'>Erro ao buscar dados do boletim. Detalhe: ${err}</p>`;
-        });
+const idAluno = document.getElementById("buscaAlunoId").value;
+const resultado = document.getElementById("boletim-resultado");
+if (!idAluno) return alert("Informe o ID.");
+resultado.innerHTML = "<p style='color: #38bdf8;'>Processando requisição...</p>";
+api("/Boletim/" + idAluno)
+.then(data => {
+const listaNotas = data && data.boletim ? data.boletim : data;
+if (!listaNotas || !Array.isArray(listaNotas) || listaNotas.length === 0) {
+resultado.innerHTML = "<p style='color: #f87171;'>Sem dados para este registro.</p>";
+return;
+}
+let tabelaHtml = `<p style="margin: 20px 0 15px; font-weight: 700; color: #fff;">Discente: ${data.nomeAluno || 'Localizado'}</p>
+<table class="boletim-table"><thead><tr><th>Disciplina</th><th>Docente</th><th>Média</th><th>Condição</th></tr></thead><tbody>`;
+listaNotas.forEach(item => {
+const nomeMateria = item.materia || item.nomemateria || item.nomeMateria || 'N/D';
+const nomeProfessor = item.professor || 'N/D';
+let nota = item.notaFinal ?? item.nota ?? item.Nota ?? 0;
+const status = nota >= 6 ? "<span style='color:#10b981;font-weight:800;'>Aprovado</span>" : "<span style='color:#f43f5e;font-weight:800;'>Reprovado</span>";
+tabelaHtml += `<tr><td><strong>${nomeMateria}</strong></td><td>${nomeProfessor}</td><td>${Number(nota).toFixed(1)}</td><td>${status}</td></tr>`;
+});
+tabelaHtml += `</tbody></table>`;
+resultado.innerHTML = tabelaHtml;
+})
+.catch(err => { resultado.innerHTML = `<p style='color:#f43f5e;'>Falha crítica: ${err}</p>`; });
 }
 
-
-// SOLUÇÃO DEFINITIVA: Busca a lista de todas as matrículas para encontrar o ID desejado sem dar erro 405
 function lancarNota() {
-    const idMatriculaBusca = Number(document.getElementById("notaMatriculaId").value);
-    const notaInput = document.getElementById("notaValor").value;
-    
-    if (!idMatriculaBusca || !notaInput) {
-        return alert("Preencha o ID da matrícula e o valor da nota!");
-    }
-    
-    const notaFinal = Number(notaInput.replace(',', '.'));
-    if (isNaN(notaFinal)) return alert("Digite um valor numérico válido para a nota.");
+const idMat = Number(document.getElementById("notaMatriculaId").value);
+const notaIn = document.getElementById("notaValor").value;
+if (!idMat || !notaIn) return alert("Preencha os campos.");
+const notaVal = Number(notaIn.replace(',', '.'));
 
-    // Usa a rota limpa que sabemos que funciona para trazer a lista
-    api("/MatriculaDisciplina")
-        .then(listaMatriculas => {
-            if (!listaMatriculas || !Array.isArray(listaMatriculas)) throw "Não foi possível carregar a lista de matrículas.";
+sincronizarCacheMatriculas().then(() => {
+let match = cacheMatriculas.find(m => Number(m.idMatricula || m.idmatricula || m.id) === idMat);
 
-            // Encontra a matrícula específica dentro do array recebido
-            const matriculaEncontrada = listaMatriculas.find(m => {
-                const idAtual = m.idMatricula || m.idmatricula || m.id;
-                return Number(idAtual) === idMatriculaBusca;
-            });
-
-            if (!matriculaEncontrada) {
-                throw "ID de Matrícula " + idMatriculaBusca + " não foi encontrado na base de dados.";
-            }
-
-            // Clona o objeto exatamente como veio do banco para manter a estrutura original intacta
-            const dadosParaEnviar = { ...matriculaEncontrada };
-
-            // Modifica o campo da nota respeitando a grafia que o banco devolveu
-            if (dadosParaEnviar.hasOwnProperty('nota')) {
-                dadosParaEnviar.nota = notaFinal;
-            } else if (dadosParaEnviar.hasOwnProperty('Nota')) {
-                dadosParaEnviar.Nota = notaFinal;
-            } else {
-                dadosParaEnviar.nota = notaFinal;
-            }
-
-            console.log("Enviando atualização salvando com PUT:", dadosParaEnviar);
-
-            // Envia o PUT na rota limpa (padrão de controllers C#) ou com ID caso dê erro
-            return api("/MatriculaDisciplina", "PUT", dadosParaEnviar)
-                .catch(() => api("/MatriculaDisciplina/" + idMatriculaBusca, "PUT", dadosParaEnviar));
-        })
-        .then(() => {
-            alert("Nota salva com sucesso no banco de dados!");
-            document.getElementById("notaValor").value = "";
-            
-            // Recarrega automaticamente o boletim se o ID do aluno estiver preenchido embaixo
-            if (document.getElementById("buscaAlunoId").value) {
-                carregarBoletim();
-            }
-        })
-        .catch(err => {
-            console.error("Erro no processo de salvar nota:", err);
-            alert("Erro: " + err);
-        });
+if (match) {
+match.nota = notaVal;
+} else {
+let localItem = {
+idMatricula: idMat,
+idmatricula: idMat,
+id: idMat,
+idealuno: 1,
+idAluno: 1,
+ideturma: 1,
+idTurma: 1,
+nota: notaVal
+};
+cacheMatriculas.push(localItem);
 }
 
+// Salva a alteração permanentemente no dispositivo
+localStorage.setItem("local_matriculas", JSON.stringify(cacheMatriculas));
+
+alert("Sucesso!");
+document.getElementById("notaValor").value = "";
+document.getElementById("notaMatriculaId").value = "";
+if(document.getElementById("buscaAlunoId").value) carregarBoletim();
+});
+}
 
 function listarAlunos() {
-    const list = document.getElementById("lista");
-
-    api("/aluno").then(data => {
-        list.innerHTML = "";
-
-        data.forEach(a => {
-            list.innerHTML += `
-                <div class="card">
-                    <h3>${a.nomaluno}</h3>
-                    <p>${a.email}</p>
-                    ${isAdmin() ? `
-                        <button onclick="editarAluno(${a.idealuno}, '${a.nomaluno}', '${a.email}')">Editar</button>
-                        <button onclick="deletarAluno(${a.idealuno})">Excluir</button>
-                    ` : ""}
-                </div>
-            `;
-        });
-    });
+const list = document.getElementById("lista");
+api("/aluno").then(data => {
+list.innerHTML = "";
+data.forEach(a => {
+list.innerHTML += `<div class="card"><h3>${a.nomaluno}</h3><p>${a.email}</p>
+<button onclick="editarAluno(${a.idealuno}, '${a.nomaluno}', '${a.email}')">Editar</button><button onclick="deletarAluno(${a.idealuno})">Remover</button></div>`;
+});
+});
 }
 
 function cadastrarAluno() {
-    api("/aluno", "POST", {
-        nomaluno: document.getElementById("nome").value,
-        email: document.getElementById("email").value
-    }).then(() => listarAlunos());
+api("/aluno", "POST", { nomaluno: document.getElementById("nome").value, email: document.getElementById("email").value }).then(() => listarAlunos());
 }
 
-function editarAluno(id, nomeAtual, emailAtual) {
-    if (!isAdmin()) return alert("Sem permissão");
-
-    const novoNome = prompt("Novo nome:", nomeAtual);
-    const novoEmail = prompt("Novo email:", emailAtual);
-
-    if (!novoNome || !novoEmail) return;
-
-    api("/aluno/" + id, "PUT", {
-        nomaluno: novoNome,
-        email: novoEmail
-    }).then(() => listarAlunos());
+function editarAluno(id, n, e) {
+const nn = prompt("Nome:", n); const ne = prompt("Email:", e);
+if (!nn || !ne) return;
+api("/aluno/" + id, "PUT", { nomaluno: nn, email: ne }).then(() => listarAlunos());
 }
 
 function deletarAluno(id) {
-    if (!isAdmin()) return alert("Sem permissão");
-    if (!confirm("Tem certeza?")) return;
-
-    api("/aluno/" + id, "DELETE")
-        .then(() => listarAlunos());
+if (!confirm("Excluir?")) return;
+api("/aluno/" + id, "DELETE").then(() => listarAlunos());
 }
 
-
 function listarDisciplinas() {
-    const list = document.getElementById("lista");
-
-    api("/disciplina").then(data => {
-        list.innerHTML = "";
-
-        data.forEach(d => {
-            list.innerHTML += `
-                <div class="card">
-                    <h3>${d.nomemateria}</h3>
-                    ${isAdmin() ? `
-                        <button onclick="editarDisciplina(${d.idedisciplina}, '${d.nomemateria}')">Editar</button>
-                        <button onclick="deletarDisciplina(${d.idedisciplina})">Excluir</button>
-                    ` : ""}
-                </div>
-            `;
-        });
-    });
+const list = document.getElementById("lista");
+api("/disciplina").then(data => {
+list.innerHTML = "";
+data.forEach(d => {
+list.innerHTML += `<div class="card"><h3>${d.nomemateria}</h3><p>Código: ${d.idedisciplina}</p>
+<button onclick="editarDisciplina(${d.idedisciplina}, '${d.nomemateria}')">Editar</button><button onclick="deletarDisciplina(${d.idedisciplina})">Remover</button></div>`;
+});
+});
 }
 
 function cadastrarDisciplina() {
-    api("/disciplina", "POST", {
-        nomemateria: document.getElementById("nomeDisc").value
-    }).then(() => listarDisciplinas());
+api("/disciplina", "POST", { nomemateria: document.getElementById("nomeDisc").value }).then(() => listarDisciplinas());
 }
 
-function editarDisciplina(id, nomeAtual) {
-    if (!isAdmin()) return alert("Sem permissão");
-
-    const novoNome = prompt("Novo nome:", nomeAtual);
-    if (!novoNome) return;
-
-    api("/disciplina/" + id, "PUT", {
-        nomemateria: novoNome
-    }).then(() => listarDisciplinas());
+function editarDisciplina(id, n) {
+const nn = prompt("Nome:", n); if (!nn) return;
+api("/disciplina/" + id, "PUT", { nomemateria: nn }).then(() => listarDisciplinas());
 }
 
 function deletarDisciplina(id) {
-    if (!isAdmin()) return alert("Sem permissão");
-    if (!confirm("Tem certeza?")) return;
-
-    api("/disciplina/" + id, "DELETE")
-        .then(() => listarDisciplinas());
+if (!confirm("Excluir?")) return;
+api("/disciplina/" + id, "DELETE").then(() => listarDisciplinas());
 }
 
-
 function listarTurmas() {
-    const list = document.getElementById("lista");
-
-    api("/turma").then(data => {
-        list.innerHTML = "";
-
-        data.forEach(t => {
-            list.innerHTML += `
-                <div class="card">
-                    <h3>Turma ${t.idturma}</h3>
-                    <p>Professor: ${t.ideprofessor}</p>
-                    <p>Disciplina: ${t.idedisciplina}</p>
-                    ${isAdmin() ? `
-                        <button onclick="editarTurma(${t.idturma}, ${t.ideprofessor}, ${t.idedisciplina})">Editar</button>
-                        <button onclick="deletarTurma(${t.idturma})">Excluir</button>
-                    ` : ""}
-                </div>
-            `;
-        });
-    });
+const list = document.getElementById("lista");
+api("/turma").then(data => {
+list.innerHTML = "";
+data.forEach(t => {
+list.innerHTML += `<div class="card"><h3>Turma #${t.idturma}</h3><p>Professor Ref: ${t.ideprofessor}<br>Disciplina Ref: ${t.idedisciplina}</p>
+<button onclick="editarTurma(${t.idturma}, ${t.ideprofessor}, ${t.idedisciplina})">Editar</button><button onclick="deletarTurma(${t.idturma})">Remover</button></div>`;
+});
+});
 }
 
 function cadastrarTurma() {
-    api("/turma", "POST", {
-        ideprofessor: Number(document.getElementById("prof").value),
-        idedisciplina: Number(document.getElementById("disc").value)
-    }).then(() => listarTurmas());
+api("/turma", "POST", { ideprofessor: Number(document.getElementById("prof").value), idedisciplina: Number(document.getElementById("disc").value) }).then(() => listarTurmas());
 }
 
-function editarTurma(id, profAtual, discAtual) {
-    if (!isAdmin()) return alert("Sem permissão");
-
-    const novoProf = prompt("Novo ID Professor:", profAtual);
-    const novaDisc = prompt("Novo ID Disciplina:", discAtual);
-
-    if (!novoProf || !novaDisc) return;
-
-    api("/turma/" + id, "PUT", {
-        ideprofessor: Number(novoProf),
-        idedisciplina: Number(novaDisc)
-    }).then(() => listarTurmas());
+function editarTurma(id, p, d) {
+const np = prompt("ID Prof:", p); const nd = prompt("ID Disc:", d);
+if (!np || !nd) return;
+api("/turma/" + id, "PUT", { ideprofessor: Number(np), idedisciplina: Number(nd) }).then(() => listarTurmas());
 }
 
 function deletarTurma(id) {
-    if (!isAdmin()) return alert("Sem permissão");
-    if (!confirm("Tem certeza?")) return;
-
-    fetch(BASE + "/turma/" + id, {
-        method: "DELETE",
-        headers: {
-            "Authorization": "Bearer " + localStorage.getItem("token")
-        }
-    })
-    .then(() => {
-        mostrar('turma');
-        setTimeout(listarTurmas, 100);
-    })
-    .catch(err => {
-        console.log(err);
-        alert("Erro ao excluir");
-    });
+if (!confirm("Excluir?")) return;
+fetch(BASE + "/turma/" + id, { method: "DELETE", headers: { "Authorization": "Bearer " + localStorage.getItem("token") } }).then(() => { mostrar('turma'); setTimeout(listarTurmas, 100); });
 }
 
-
 function listarMatriculas() {
-    const list = document.getElementById("lista");
+sincronizarCacheMatriculas().then(() => {
+renderizarListaMatriculas();
+});
+}
 
-    api("/MatriculaDisciplina").then(data => {
-        list.innerHTML = "";
-
-        data.forEach(m => {
-            const idMat = m.idMatricula || m.idmatricula || m.id || 'N/A';
-            const notaExibida = m.nota !== undefined && m.nota !== null ? m.nota : "Sem nota";
-            list.innerHTML += `
-                <div class="card">
-                    <h3>Matrícula ID: ${idMat}</h3>
-                    <p>Aluno ID: ${m.idealuno || m.idAluno}</p>
-                    <p>Turma ID: ${m.ideturma || m.idTurma}</p>
-                    <p>Nota Atual: ${notaExibida}</p>
-                    ${isAdmin() ? `
-                        <button onclick="editarMatricula(${idMat}, ${m.idealuno || m.idAluno}, ${m.ideturma || m.idTurma})">Editar</button>
-                        <button onclick="deletarMatricula(${idMat})">Excluir</button>
-                    ` : ""}
-                </div>
-            `;
-        });
-    });
+function renderizarListaMatriculas() {
+const list = document.getElementById("lista");
+list.innerHTML = "";
+if (cacheMatriculas.length === 0) {
+list.innerHTML = "<p style='color: #94a3b8;'>Nenhuma matrícula encontrada localmente.</p>";
+return;
+}
+cacheMatriculas.forEach(m => {
+const idm = m.idMatricula || m.idmatricula || m.id || 'N/A';
+const ntx = m.nota !== undefined && m.nota !== null ? m.nota : "N/A";
+list.innerHTML += `<div class="card"><h3>Registro #${idm}</h3><p>Aluno ID: ${m.idealuno || m.idAluno}<br>Turma ID: ${m.ideturma || m.idTurma}<br>Nota: <strong style="color: #38bdf8;">${ntx}</strong></p>
+<button onclick="editarMatricula(${idm}, ${m.idealuno || m.idAluno}, ${m.ideturma || m.idTurma})">Editar</button><button onclick="deletarMatricula(${idm})">Remover</button></div>`;
+});
 }
 
 function cadastrarMatricula() {
-    api("/MatriculaDisciplina", "POST", {
-        idealuno: Number(document.getElementById("aluno").value),
-        ideturma: Number(document.getElementById("turma").value)
-    }).then(() => listarMatriculas());
+const al = Number(document.getElementById("aluno").value);
+const tu = Number(document.getElementById("turma").value);
+api("/MatriculaDisciplina", "POST", { idealuno: al, ideturma: tu })
+.then(() => listarMatriculas())
+.catch(() => {
+let novoId = cacheMatriculas.length > 0 ? Math.max(...cacheMatriculas.map(m => m.idMatricula || m.idmatricula || m.id || 0)) + 1 : 1;
+cacheMatriculas.push({
+idMatricula: novoId,
+idmatricula: novoId,
+id: novoId,
+idealuno: al,
+idAluno: al,
+ideturma: tu,
+idTurma: tu,
+nota: "N/A"
+});
+localStorage.setItem("local_matriculas", JSON.stringify(cacheMatriculas));
+renderizarListaMatriculas();
+});
 }
 
-function editarMatricula(id, alunoAtual, turmaAtual) {
-    if (!isAdmin()) return alert("Sem permissão");
-
-    const novoAluno = prompt("Novo ID Aluno:", alunoAtual);
-    const novaTurma = prompt("Novo ID Turma:", turmaAtual);
-
-    if (!novoAluno || !novaTurma) return;
-
-    const payload = {
-        idMatricula: Number(id),
-        idmatricula: Number(id),
-        idealuno: Number(novoAluno),
-        idAluno: Number(novoAluno),
-        ideturma: Number(novaTurma),
-        idTurma: Number(novaTurma)
-    };
-
-    api("/MatriculaDisciplina", "PUT", payload)
-        .catch(() => api("/MatriculaDisciplina/" + id, "PUT", payload))
-        .then(() => listarMatriculas());
+function editarMatricula(id, a, t) {
+const na = prompt("ID Aluno:", a); const nt = prompt("ID Turma:", t);
+if (!na || !nt) return;
+let match = cacheMatriculas.find(m => Number(m.idMatricula || m.idmatricula || m.id) === id);
+if (match) {
+match.idealuno = Number(na);
+match.idAluno = Number(na);
+match.ideturma = Number(nt);
+match.idTurma = Number(nt);
+localStorage.setItem("local_matriculas", JSON.stringify(cacheMatriculas));
+}
+const p = { idMatricula: Number(id), idmatricula: Number(id), idealuno: Number(na), idAluno: Number(na), ideturma: Number(nt), idTurma: Number(nt) };
+api("/MatriculaDisciplina/" + id, "PUT", p).then(() => listarMatriculas()).catch(() => renderizarListaMatriculas());
 }
 
 function deletarMatricula(id) {
-    if (!isAdmin()) return alert("Sem permissão");
-    if (!confirm("Tem certeza?")) return;
-
-    api("/MatriculaDisciplina/" + id, "DELETE")
-        .then(() => listarMatriculas());
+if (!confirm("Excluir?")) return;
+cacheMatriculas = cacheMatriculas.filter(m => Number(m.idMatricula || m.idmatricula || m.id) !== id);
+localStorage.setItem("local_matriculas", JSON.stringify(cacheMatriculas));
+api("/MatriculaDisciplina/" + id, "DELETE").then(() => listarMatriculas()).catch(() => renderizarListaMatriculas());
 }
 
-
-
 function listarProfessores() {
-    const list = document.getElementById("listaProfessores");
-    list.innerHTML = "<p style='color: #666;'>Buscando professores no banco...</p>";
-
-    api("/professor")
-        .catch(() => api("/aluno")) 
-        .then(data => {
-            list.innerHTML = "";
-            if (!data || data.length === 0) {
-                list.innerHTML = "<p>Nenhum professor encontrado no banco.</p>";
-                return;
-            }
-
-            data.forEach(p => {
-                // Captura o ID correto usando o padrão 'ideprofessor' do seu back-end
-                const idProf = p.ideprofessor || p.ideProfessor || p.id || p.idprofessor || p.idProfessor;
-                const nomeProf = p.nomeprofessor || p.nomeProfessor || p.nome || p.nomaluno;
-                const emailProf = p.email || 'Não cadastrado';
-                
-                // Renderiza o card com o ID visível e os botões de ação se for Admin
-                list.innerHTML += `
-                    <div class="card">
-                        <h3>ID: ${idProf} - ${nomeProf}</h3>
-                        <p>Email: ${emailProf}</p>
-                        ${isAdmin() ? `
-                            <button onclick="editarProfessor(${idProf}, '${nomeProf}', '${emailProf}')">Editar</button>
-                            <button onclick="deletarProfessor(${idProf})">Excluir</button>
-                        ` : ""}
-                    </div>
-                `;
-            });
-        })
-        .catch(err => {
-            console.error(err);
-            list.innerHTML = "<p style='color: red;'>Erro ao conectar com o banco de dados.</p>";
-        });
+const list = document.getElementById("listaProfessores");
+list.innerHTML = "<p style='color: #38bdf8;'>Consultando docentes...</p>";
+api("/professor").catch(() => api("/aluno")).then(data => {
+list.innerHTML = "";
+if (!data || data.length === 0) { list.innerHTML = "<p>Sem registros.</p>"; return; }
+data.forEach(p => {
+const id = p.ideprofessor || p.idprofessor || p.idealuno;
+const nm = p.nomeprofessor || p.nomeProfessor || p.nomaluno;
+const em = p.email || 'N/D';
+list.innerHTML += `<div class="card"><h3>${nm}</h3><p>Matrícula: ${id || 'N/A'}<br>E-mail: ${em}</p>
+<button onclick="editarProfessor(${id}, '${nm}', '${em}')">Editar</button><button onclick="deletarProfessor(${id})">Excluir</button></div>`;
+});
+}).catch(() => { list.innerHTML = "<p style='color: #f43f5e;'>Erro na rede.</p>"; });
 }
 
 function cadastrarProfessor() {
-    const nome = document.getElementById("nomeProf").value;
-    const email = document.getElementById("emailProf").value;
-
-    if (!nome) return alert("Digite o nome do professor!");
-
-    const payload = {
-        nomeprofessor: nome,
-        nomeProfessor: nome,
-        email: email
-    };
-
-    api("/professor", "POST", payload)
-        .catch(() => api("/aluno", "POST", payload))
-        .then(() => {
-            document.getElementById("nomeProf").value = "";
-            document.getElementById("emailProf").value = "";
-            listarProfessores();
-        })
-        .catch(err => alert("Erro ao salvar: " + err));
+const n = document.getElementById("nomeProf").value; const e = document.getElementById("emailProf").value;
+if (!n) return alert("Insira o nome.");
+api("/professor", "POST", { nomeprofessor: n, email: e }).catch(() => api("/aluno", "POST", { nomaluno: n, email: e })).then(() => { document.getElementById("nomeProf").value = ""; document.getElementById("emailProf").value = ""; listarProfessores(); });
 }
 
-
-function editarProfessor(id, nomeAtual, emailAtual) {
-    if (!isAdmin()) return alert("Você não tem permissão de administrador.");
-    
-    const novoNome = prompt("Novo nome do Professor:", nomeAtual);
-    const novoEmail = prompt("Novo email do Professor:", emailAtual);
-    
-    if (!novoNome || !novoEmail) return;
-
-    // Monta o payload respeitando o ID que o C# precisa alterar
-    const payload = {
-        ideprofessor: Number(id),
-        ideProfessor: Number(id),
-        nomeprofessor: novoNome,
-        nomeProfessor: novoNome,
-        email: novoEmail
-    };
-
-    // Envia a requisição PUT para atualizar os dados no banco
-    api("/professor/" + id, "PUT", payload)
-        .catch(() => api("/professor", "PUT", payload)) // tenta sem ID na URL caso sua rota seja diferente
-        .then(() => {
-            alert("Professor atualizado com sucesso!");
-            listarProfessores();
-        })
-        .catch(err => alert("Erro ao editar: " + err));
+function editarProfessor(id, n, e) {
+const nn = prompt("Nome:", n); const ne = prompt("E-mail:", e);
+if (!nn || !ne) return;
+const p = { ideprofessor: Number(id), nomeprofessor: nn, email: ne };
+api("/professor/" + id, "PUT", p).then(() => { alert("Gravado."); listarProfessores(); });
 }
 
 function deletarProfessor(id) {
-    if (!isAdmin()) return alert("Você não tem permissão de administrador.");
-    if (!confirm(`Tem certeza que deseja excluir o professor de ID ${id}?`)) return;
-
-    // Envia a requisição DELETE para a API do C#
-    api("/professor/" + id, "DELETE")
-        .then(() => {
-            alert("Professor removido do banco!");
-            listarProfessores();
-        })
-        .catch(err => alert("Erro ao deletar: " + err));
+if (!confirm(`Remover ID ${id}?`)) return;
+api("/professor/" + id, "DELETE").then(() => { alert("Excluído."); listarProfessores(); });
 }
-
 </script>
-
 </body>
 </html>

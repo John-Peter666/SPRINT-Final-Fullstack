@@ -6,6 +6,7 @@ using Sprint_3.Data;
 using Sprint_3.Services;
 using System.Text;
 
+var options = new WebApplicationOptions { Args = args, WebRootPath = null };
 var builder = WebApplication.CreateBuilder(args);
 
 

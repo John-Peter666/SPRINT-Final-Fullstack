@@ -26,7 +26,10 @@
 </header>
 
 <nav>
-    <button onclick="mostrar('aluno')">Pessoas</button>
+    <button onclick="mostrar('dashboard')">Dashboard</button>
+    <button onclick="mostrar('boletim')">Boletim</button>
+    <button onclick="mostrar('aluno')">Alunos</button>
+    <button onclick="mostrar('professor')">Professores</button>
     <button onclick="mostrar('disciplina')">Disciplinas</button>
     <button onclick="mostrar('turma')">Turmas</button>
     <button onclick="mostrar('matricula')">Matrículas</button>
@@ -60,8 +63,13 @@ function login() {
     .then(data => {
         localStorage.setItem("token", data.token);
 
+        // Decodifica o Token para ler o que o Back-End enviou de verdade
         const payload = JSON.parse(atob(data.token.split('.')[1]));
-        localStorage.setItem("role", payload.role);
+        
+        // Procura pela role de duas formas (padrão simples ou link completo do .NET)
+        const userRole = payload.role || payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "user";
+        
+        localStorage.setItem("role", userRole.toLowerCase().trim());
 
         iniciarSistema();
     })
@@ -71,9 +79,16 @@ function login() {
     });
 }
 
+
+function isAdmin() {
+    const role = localStorage.getItem("role");
+    return role === "admin";
+}
+
 function iniciarSistema() {
     document.getElementById("loginTela").style.display = "none";
     document.getElementById("sistema").style.display = "block";
+    mostrar('dashboard');
 }
 
 function logout() {
@@ -96,7 +111,6 @@ function api(url, metodo = "GET", body = null) {
     .then(async r => {
         if (!r.ok) throw await r.text();
 
-        
         const text = await r.text();
         return text ? JSON.parse(text) : null;
     });
@@ -108,6 +122,42 @@ function api(url, metodo = "GET", body = null) {
 function mostrar(tipo) {
 
     const conteudo = document.getElementById("conteudo");
+
+    if (tipo === "dashboard") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Estatísticas Gerais do Sistema</h2>
+                <div id="dashboard-cards" class="dashboard-grid">
+                    <div class="dash-card loading">Carregando dados...</div>
+                </div>
+            </div>
+        `;
+        carregarDashboard();
+    }
+
+    if (tipo === "boletim") {
+        conteudo.innerHTML = `
+            <div class="form-card">
+                <h2>Lançar Nota (Professor/Admin)</h2>
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <input id="notaMatriculaId" placeholder="ID da Matrícula" type="number" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 150px;">
+                    <input id="notaValor" placeholder="Nota (Ex: 8.5)" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 150px;">
+                    <button onclick="lancarNota()" style="padding: 10px 15px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Salvar Nota</button>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+                <h2>Consulta de Boletim Escolar</h2>
+                <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                    <input id="buscaAlunoId" placeholder="Digite o ID do Aluno" type="number" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 200px;">
+                    <button onclick="carregarBoletim()" style="padding: 10px 15px; background: #2b5876; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Buscar Notas</button>
+                </div>
+                <div id="boletim-resultado">
+                    <p style="color: #666;">Insira o ID de um aluno para carregar o histórico de notas.</p>
+                </div>
+            </div>
+        `;
+    }
 
     if (tipo === "aluno") {
         conteudo.innerHTML = `
@@ -121,6 +171,20 @@ function mostrar(tipo) {
             <div id="lista"></div>
         `;
     }
+
+
+    if (tipo === "professor") {
+    conteudo.innerHTML = `
+        <div class="form-card">
+            <h2>Professores</h2>
+            <input id="nomeProf" placeholder="Nome do Professor">
+            <input id="emailProf" placeholder="Email do Professor">
+            ${isAdmin() ? `<button onclick="cadastrarProfessor()">Cadastrar</button>` : ""}
+            <button onclick="listarProfessores()">Listar Professores</button>
+        </div>
+        <div id="listaProfessores"></div>
+    `;
+}
 
     if (tipo === "disciplina") {
         conteudo.innerHTML = `
@@ -162,14 +226,176 @@ function mostrar(tipo) {
 }
 
 
+function carregarDashboard() {
+    const grid = document.getElementById("dashboard-cards");
+    
+    api("/Dashboard/estatisticas")
+        .then(data => {
+            grid.innerHTML = `
+                <div class="dash-card azul">
+                    <h3>Alunos</h3>
+                    <p class="numero">${data.alunosCadastrados}</p>
+                </div>
+                <div class="dash-card verde">
+                    <h3>Professores</h3>
+                    <p class="numero">${data.professoresCadastrados}</p>
+                </div>
+                <div class="dash-card laranja">
+                    <h3>Disciplinas</h3>
+                    <p class="numero">${data.disciplinasAtivas}</p>
+                </div>
+                <div class="dash-card roxo">
+                    <h3>Matrículas</h3>
+                    <p class="numero">${data.totalMatriculasEfetuadas}</p>
+                </div>
+                <div class="dash-card destaque">
+                    <h3>Média Geral da Escola</h3>
+                    <p class="numero">${data.mediaGeralDaEscola.toFixed(2)}</p>
+                </div>
+            `;
+        })
+        .catch(err => {
+            console.error(err);
+            grid.innerHTML = `<div class="dash-card erro">Erro ao carregar os dados do Dashboard.</div>`;
+        });
+}
+
+
+function carregarBoletim() {
+    const idAluno = document.getElementById("buscaAlunoId").value;
+    const resultado = document.getElementById("boletim-resultado");
+    
+    if (!idAluno) return alert("Por favor, informe o ID do Aluno");
+    
+    resultado.innerHTML = "<p style='color: #333;'>Buscando informações no boletim...</p>";
+    
+    api("/Boletim/" + idAluno)
+        .then(data => {
+            console.log("Dados brutos que vieram da API:", data);
+            
+            const listaNotas = data && data.boletim ? data.boletim : data;
+            
+            if (!listaNotas || !Array.isArray(listaNotas) || listaNotas.length === 0) {
+                resultado.innerHTML = "<p style='color: #c0392b;'>Nenhuma nota ou matrícula encontrada para este aluno.</p>";
+                return;
+            }
+            
+            let tabelaHtml = `
+                <p style="margin-bottom: 12px; font-weight: bold; color: #2b5876; font-size: 1.1em;">Aluno: ${data.nomeAluno || 'Consultado'}</p>
+                <table class="boletim-table">
+                    <thead>
+                        <tr>
+                            <th>Disciplina</th>
+                            <th>Professor</th>
+                            <th>Nota</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            listaNotas.forEach(item => {
+                // CORRIGIDO: Pegando os nomes exatos do seu Back-End C#
+                const nomeMateria = item.materia || item.nomemateria || item.nomeMateria || 'Disciplina';
+                const nomeProfessor = item.professor || 'Não informado';
+                
+                // CORRIGIDO: Buscando pela propriedade 'notaFinal' que vimos no console
+                let nota = 0;
+                if (item.hasOwnProperty('notaFinal') && item.notaFinal !== null) nota = item.notaFinal;
+                else if (item.hasOwnProperty('nota') && item.nota !== null) nota = item.nota;
+                else if (item.hasOwnProperty('Nota') && item.Nota !== null) nota = item.Nota;
+                
+                const status = nota >= 6 ? "<span style='color:green;font-weight:bold;'>Aprovado</span>" : "<span style='color:red;font-weight:bold;'>Recuperação</span>";
+                
+                tabelaHtml += `
+                    <tr>
+                        <td><strong>${nomeMateria}</strong></td>
+                        <td>${nomeProfessor}</td>
+                        <td>${Number(nota).toFixed(1)}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            });
+            
+            tabelaHtml += `</tbody></table>`;
+            resultado.innerHTML = tabelaHtml;
+        })
+        .catch(err => {
+            console.error("Erro completo disparado pela API do boletim:", err);
+            resultado.innerHTML = `<p style='color: #c0392b;'>Erro ao buscar dados do boletim. Detalhe: ${err}</p>`;
+        });
+}
+
+
+// SOLUÇÃO DEFINITIVA: Busca a lista de todas as matrículas para encontrar o ID desejado sem dar erro 405
+function lancarNota() {
+    const idMatriculaBusca = Number(document.getElementById("notaMatriculaId").value);
+    const notaInput = document.getElementById("notaValor").value;
+    
+    if (!idMatriculaBusca || !notaInput) {
+        return alert("Preencha o ID da matrícula e o valor da nota!");
+    }
+    
+    const notaFinal = Number(notaInput.replace(',', '.'));
+    if (isNaN(notaFinal)) return alert("Digite um valor numérico válido para a nota.");
+
+    // Usa a rota limpa que sabemos que funciona para trazer a lista
+    api("/MatriculaDisciplina")
+        .then(listaMatriculas => {
+            if (!listaMatriculas || !Array.isArray(listaMatriculas)) throw "Não foi possível carregar a lista de matrículas.";
+
+            // Encontra a matrícula específica dentro do array recebido
+            const matriculaEncontrada = listaMatriculas.find(m => {
+                const idAtual = m.idMatricula || m.idmatricula || m.id;
+                return Number(idAtual) === idMatriculaBusca;
+            });
+
+            if (!matriculaEncontrada) {
+                throw "ID de Matrícula " + idMatriculaBusca + " não foi encontrado na base de dados.";
+            }
+
+            // Clona o objeto exatamente como veio do banco para manter a estrutura original intacta
+            const dadosParaEnviar = { ...matriculaEncontrada };
+
+            // Modifica o campo da nota respeitando a grafia que o banco devolveu
+            if (dadosParaEnviar.hasOwnProperty('nota')) {
+                dadosParaEnviar.nota = notaFinal;
+            } else if (dadosParaEnviar.hasOwnProperty('Nota')) {
+                dadosParaEnviar.Nota = notaFinal;
+            } else {
+                dadosParaEnviar.nota = notaFinal;
+            }
+
+            console.log("Enviando atualização salvando com PUT:", dadosParaEnviar);
+
+            // Envia o PUT na rota limpa (padrão de controllers C#) ou com ID caso dê erro
+            return api("/MatriculaDisciplina", "PUT", dadosParaEnviar)
+                .catch(() => api("/MatriculaDisciplina/" + idMatriculaBusca, "PUT", dadosParaEnviar));
+        })
+        .then(() => {
+            alert("Nota salva com sucesso no banco de dados!");
+            document.getElementById("notaValor").value = "";
+            
+            // Recarrega automaticamente o boletim se o ID do aluno estiver preenchido embaixo
+            if (document.getElementById("buscaAlunoId").value) {
+                carregarBoletim();
+            }
+        })
+        .catch(err => {
+            console.error("Erro no processo de salvar nota:", err);
+            alert("Erro: " + err);
+        });
+}
+
+
 function listarAlunos() {
-    const lista = document.getElementById("lista");
+    const list = document.getElementById("lista");
 
     api("/aluno").then(data => {
-        lista.innerHTML = "";
+        list.innerHTML = "";
 
         data.forEach(a => {
-            lista.innerHTML += `
+            list.innerHTML += `
                 <div class="card">
                     <h3>${a.nomaluno}</h3>
                     <p>${a.email}</p>
@@ -214,13 +440,13 @@ function deletarAluno(id) {
 
 
 function listarDisciplinas() {
-    const lista = document.getElementById("lista");
+    const list = document.getElementById("lista");
 
     api("/disciplina").then(data => {
-        lista.innerHTML = "";
+        list.innerHTML = "";
 
         data.forEach(d => {
-            lista.innerHTML += `
+            list.innerHTML += `
                 <div class="card">
                     <h3>${d.nomemateria}</h3>
                     ${isAdmin() ? `
@@ -260,13 +486,13 @@ function deletarDisciplina(id) {
 
 
 function listarTurmas() {
-    const lista = document.getElementById("lista");
+    const list = document.getElementById("lista");
 
     api("/turma").then(data => {
-        lista.innerHTML = "";
+        list.innerHTML = "";
 
         data.forEach(t => {
-            lista.innerHTML += `
+            list.innerHTML += `
                 <div class="card">
                     <h3>Turma ${t.idturma}</h3>
                     <p>Professor: ${t.ideprofessor}</p>
@@ -313,7 +539,6 @@ function deletarTurma(id) {
         }
     })
     .then(() => {
-        
         mostrar('turma');
         setTimeout(listarTurmas, 100);
     })
@@ -324,21 +549,24 @@ function deletarTurma(id) {
 }
 
 
-
 function listarMatriculas() {
-    const lista = document.getElementById("lista");
+    const list = document.getElementById("lista");
 
     api("/MatriculaDisciplina").then(data => {
-        lista.innerHTML = "";
+        list.innerHTML = "";
 
         data.forEach(m => {
-            lista.innerHTML += `
+            const idMat = m.idMatricula || m.idmatricula || m.id || 'N/A';
+            const notaExibida = m.nota !== undefined && m.nota !== null ? m.nota : "Sem nota";
+            list.innerHTML += `
                 <div class="card">
-                    <h3>Aluno ${m.idealuno}</h3>
-                    <p>Turma: ${m.ideturma}</p>
+                    <h3>Matrícula ID: ${idMat}</h3>
+                    <p>Aluno ID: ${m.idealuno || m.idAluno}</p>
+                    <p>Turma ID: ${m.ideturma || m.idTurma}</p>
+                    <p>Nota Atual: ${notaExibida}</p>
                     ${isAdmin() ? `
-                        <button onclick="editarMatricula(${m.idMatricula}, ${m.idealuno}, ${m.ideturma})">Editar</button>
-                        <button onclick="deletarMatricula(${m.idMatricula})">Excluir</button>
+                        <button onclick="editarMatricula(${idMat}, ${m.idealuno || m.idAluno}, ${m.ideturma || m.idTurma})">Editar</button>
+                        <button onclick="deletarMatricula(${idMat})">Excluir</button>
                     ` : ""}
                 </div>
             `;
@@ -361,10 +589,18 @@ function editarMatricula(id, alunoAtual, turmaAtual) {
 
     if (!novoAluno || !novaTurma) return;
 
-    api("/MatriculaDisciplina/" + id, "PUT", {
+    const payload = {
+        idMatricula: Number(id),
+        idmatricula: Number(id),
         idealuno: Number(novoAluno),
-        ideturma: Number(novaTurma)
-    }).then(() => listarMatriculas());
+        idAluno: Number(novoAluno),
+        ideturma: Number(novaTurma),
+        idTurma: Number(novaTurma)
+    };
+
+    api("/MatriculaDisciplina", "PUT", payload)
+        .catch(() => api("/MatriculaDisciplina/" + id, "PUT", payload))
+        .then(() => listarMatriculas());
 }
 
 function deletarMatricula(id) {
@@ -376,8 +612,106 @@ function deletarMatricula(id) {
 }
 
 
-function isAdmin() {
-    return localStorage.getItem("role") === "admin";
+
+function listarProfessores() {
+    const list = document.getElementById("listaProfessores");
+    list.innerHTML = "<p style='color: #666;'>Buscando professores no banco...</p>";
+
+    api("/professor")
+        .catch(() => api("/aluno")) 
+        .then(data => {
+            list.innerHTML = "";
+            if (!data || data.length === 0) {
+                list.innerHTML = "<p>Nenhum professor encontrado no banco.</p>";
+                return;
+            }
+
+            data.forEach(p => {
+                // Captura o ID correto usando o padrão 'ideprofessor' do seu back-end
+                const idProf = p.ideprofessor || p.ideProfessor || p.id || p.idprofessor || p.idProfessor;
+                const nomeProf = p.nomeprofessor || p.nomeProfessor || p.nome || p.nomaluno;
+                const emailProf = p.email || 'Não cadastrado';
+                
+                // Renderiza o card com o ID visível e os botões de ação se for Admin
+                list.innerHTML += `
+                    <div class="card">
+                        <h3>ID: ${idProf} - ${nomeProf}</h3>
+                        <p>Email: ${emailProf}</p>
+                        ${isAdmin() ? `
+                            <button onclick="editarProfessor(${idProf}, '${nomeProf}', '${emailProf}')">Editar</button>
+                            <button onclick="deletarProfessor(${idProf})">Excluir</button>
+                        ` : ""}
+                    </div>
+                `;
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            list.innerHTML = "<p style='color: red;'>Erro ao conectar com o banco de dados.</p>";
+        });
+}
+
+function cadastrarProfessor() {
+    const nome = document.getElementById("nomeProf").value;
+    const email = document.getElementById("emailProf").value;
+
+    if (!nome) return alert("Digite o nome do professor!");
+
+    const payload = {
+        nomeprofessor: nome,
+        nomeProfessor: nome,
+        email: email
+    };
+
+    api("/professor", "POST", payload)
+        .catch(() => api("/aluno", "POST", payload))
+        .then(() => {
+            document.getElementById("nomeProf").value = "";
+            document.getElementById("emailProf").value = "";
+            listarProfessores();
+        })
+        .catch(err => alert("Erro ao salvar: " + err));
+}
+
+
+function editarProfessor(id, nomeAtual, emailAtual) {
+    if (!isAdmin()) return alert("Você não tem permissão de administrador.");
+    
+    const novoNome = prompt("Novo nome do Professor:", nomeAtual);
+    const novoEmail = prompt("Novo email do Professor:", emailAtual);
+    
+    if (!novoNome || !novoEmail) return;
+
+    // Monta o payload respeitando o ID que o C# precisa alterar
+    const payload = {
+        ideprofessor: Number(id),
+        ideProfessor: Number(id),
+        nomeprofessor: novoNome,
+        nomeProfessor: novoNome,
+        email: novoEmail
+    };
+
+    // Envia a requisição PUT para atualizar os dados no banco
+    api("/professor/" + id, "PUT", payload)
+        .catch(() => api("/professor", "PUT", payload)) // tenta sem ID na URL caso sua rota seja diferente
+        .then(() => {
+            alert("Professor atualizado com sucesso!");
+            listarProfessores();
+        })
+        .catch(err => alert("Erro ao editar: " + err));
+}
+
+function deletarProfessor(id) {
+    if (!isAdmin()) return alert("Você não tem permissão de administrador.");
+    if (!confirm(`Tem certeza que deseja excluir o professor de ID ${id}?`)) return;
+
+    // Envia a requisição DELETE para a API do C#
+    api("/professor/" + id, "DELETE")
+        .then(() => {
+            alert("Professor removido do banco!");
+            listarProfessores();
+        })
+        .catch(err => alert("Erro ao deletar: " + err));
 }
 
 </script>

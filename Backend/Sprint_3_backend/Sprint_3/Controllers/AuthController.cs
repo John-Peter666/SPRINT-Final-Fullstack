@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Sprint_3.Data;
 using Sprint_3.Models;
+using Sprint_3.Services;
+using System.Linq;
+using System;
 
 namespace Sprint_3.Controllers
 {
@@ -13,48 +14,68 @@ namespace Sprint_3.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _config;
+        private readonly JwtService _jwtService;
 
-        public AuthController(AppDbContext context, IConfiguration config)
+        public AuthController(AppDbContext context, JwtService jwtService)
         {
             _context = context;
-            _config = config;
+            _jwtService = jwtService;
         }
 
+        // NOVO: Endpoint para cadastrar Usuários e Admins direto na sua tabela 'usuarios'
+        [HttpPost("registrar")]
+        public IActionResult Registrar([FromBody] Usuario novoUsuario)
+        {
+            if (_context.Usuarios.Any(u => u.login == novoUsuario.login))
+                return BadRequest("Este login já está em uso.");
+
+            if (string.IsNullOrEmpty(novoUsuario.role))
+                novoUsuario.role = "User"; // Padrão se não for enviado (Pode ser 'Admin' ou 'User')
+
+            // Criptografa a senha antes de salvar no banco de dados
+            novoUsuario.senha = CriptografarSenha(novoUsuario.senha);
+
+            _context.Usuarios.Add(novoUsuario);
+            _context.SaveChanges();
+
+            return Ok(new { mensagem = "Usuário registrado com sucesso!" });
+        }
+
+        // ALTERADO: O login agora criptografa a senha recebida para comparar com o banco
         [HttpPost("login")]
         public IActionResult Login([FromBody] Usuario login)
         {
+            var senhaCriptografada = CriptografarSenha(login.senha);
+
             var user = _context.Usuarios
-                .FirstOrDefault(x => x.login == login.login && x.senha == login.senha);
+                .FirstOrDefault(x => x.login == login.login && x.senha == senhaCriptografada);
 
             if (user == null)
-                return Unauthorized();
+                return Unauthorized("Login ou senha incorretos.");
 
-            
-            var key = _config["Jwt:Key"];
-            var keyBytes = Encoding.UTF8.GetBytes(key);
-
-            var claims = new[]
-            {
-                new Claim("login", user.login),
-                new Claim("role", user.role)
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
-                signingCredentials: new SigningCredentials(
-                    new SymmetricSecurityKey(keyBytes),
-                    SecurityAlgorithms.HmacSha256
-                )
-            );
+            var token = _jwtService.GerarToken(user.login, user.role);
 
             return Ok(new
             {
-                token = new JwtSecurityTokenHandler().WriteToken(token)
+                token = token,
+                usuario = user.login,
+                permissao = user.role
             });
+        }
+
+        // Função auxiliar para Hashing de Senha (SHA-256)
+        private string CriptografarSenha(string senha)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(senha));
+                var builder = new StringBuilder();
+                foreach (var b in bytes)
+                {
+                    builder.Append(b.ToString("x2"));
+                }
+                return builder.ToString();
+            }
         }
     }
 }
